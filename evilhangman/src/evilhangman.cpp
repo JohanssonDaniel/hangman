@@ -11,7 +11,7 @@ void initGame();
 
 
 void createDict(set<string>& dictionary) {
-    string filename = "dictionary.txt";
+    string filename = "di2.txt";
     ifstream input;
     input.open(filename.c_str());
     while(true) {
@@ -25,20 +25,20 @@ void createDict(set<string>& dictionary) {
     }
 }
 
-void selectWords(set<string>& dictionary, set<string>& userWords, int& size) { //Gets all words of users choice of length
+void selectWords(set<string>& dictionary, set<string>& wordsRemaining, int& size) { //Gets all words of users choice of length
 
-    while (userWords.empty()) {
+    while (wordsRemaining.empty()) {
         cout << "Please type word length: ";
         size = 0;
         cin >> size;
 
         for (set<string>::iterator it = dictionary.begin(); it!=dictionary.end(); ++it) {
             if ((*it).size() == size) {
-                userWords.insert(*it);
+                wordsRemaining.insert(*it);
             }
         }
 
-        if(userWords.empty()){
+        if(wordsRemaining.empty()){
             cout << "No words with that size..." << endl << endl;
         }
     }
@@ -46,16 +46,16 @@ void selectWords(set<string>& dictionary, set<string>& userWords, int& size) { /
 
 bool checkFormat(char& letterGuessed, set<char>& guessedLetters) {
     if (guessedLetters.count(letterGuessed) == 0) {
-            if (alphabet.find(letterGuessed)) {
+        if (alphabet.find(letterGuessed)) {
                 return true;
             }
     }
     return false;
 }
 
-void makeWordFamilies(map<string, set<string>>& wordFamilies, char& letterGuessed, set<string>& userWords, int& wordSize, string& key) {
+void makeWordFamilies(map<string, set<string>>& wordFamilies, char& letterGuessed, set<string>& wordsRemaining, int& wordSize, string& key) {
     wordFamilies.clear(); // make sure there no garbage.
-    for (set<string>::iterator it= userWords.begin(); it!=userWords.end(); ++it) {
+    for (set<string>::iterator it= wordsRemaining.begin(); it!=wordsRemaining.end(); ++it) {
         string wordKey = key;
         string word = *it;
 
@@ -76,7 +76,7 @@ void makeWordFamilies(map<string, set<string>>& wordFamilies, char& letterGuesse
     }
 }
 
-void findBiggestFamily(map<string, set<string>>& wordFamilies, string& key, set<string>& userWords) {
+void findBiggestFamily(map<string, set<string>>& wordFamilies, string& key, set<string>& wordsRemaining) {
     set<string> biggest;
 
     for (map<string, set<string>>::iterator it= wordFamilies.begin(); it!=wordFamilies.end(); ++it) {
@@ -85,14 +85,39 @@ void findBiggestFamily(map<string, set<string>>& wordFamilies, string& key, set<
             key = it->first;
         }
     }
-    userWords = biggest;
+    wordsRemaining = biggest;
 }
 
-bool keyEqualsLastWord(string& key, set<string>& userWords){
+void findSmallestKey(map<string, set<string>>& wordFamilies, string& key, set<string>& wordsRemaining){
+    string smallestKey;         //The key with the most dashes
+    int mostDashes = 0;
+    for(map<string, set<string>>::iterator it = wordFamilies.begin(); it != wordFamilies.end(); it++){
+        string tempKey = it->first;
+        int tempMostDashes = 0;
+        for(int n = 0; n < tempKey.size(); n++){
+            if (tempKey[n] == '-'){
+                ++tempMostDashes;
+            }
+        }
+        if(tempMostDashes > mostDashes){
+            mostDashes = tempMostDashes;
+            smallestKey = tempKey;
+        }
+    }
+    key = smallestKey;
+    wordsRemaining = wordFamilies[smallestKey];
+}
+
+bool compareNewOldKey(string& newKey, string& oldKey){
+    return (newKey.compare(oldKey) == 0);
+
+}
+
+bool keyEqualsLastWord(string& key, set<string>& wordsRemaining){
     set<string>::iterator it;
-    it = userWords.begin();
+    it = wordsRemaining.begin();
     //Only checks if there is one word left
-    if(userWords.size() == 1){
+    if(wordsRemaining.size() == 1){
         if (*it == key){
             return true;
         }
@@ -146,13 +171,13 @@ void promptGuessLetter(char& letterGuessed, set<char>& guessedLetters){
     }
 }
 
-void promptWordsLeft(set<string>& userWords){
+void promptWordsLeft(set<string>& wordsRemaining){
     string yes_no;
     cout << "Do you want to see amount of words left? y/n: ";
     cin >> yes_no;
 
     if (yes_no == "y") {
-        cout << "There are: " << userWords.size() << " words left" << endl;
+        cout << "There are: " << wordsRemaining.size() << " words left" << endl;
     }
 }
 
@@ -164,30 +189,41 @@ void runGame(set<string> dictionary){
     int size;
     int guesses;
     string key;
+    string oldKey;
     char letterGuessed;
-    set<string> userWords;
+    set<string> wordsRemaining;
     set<char> guessedLetters;
     map<string, set<string>> wordFamilies;
 
-    selectWords(dictionary, userWords, size);
+    selectWords(dictionary, wordsRemaining, size);
 
     makeEmptyKey(size, key);
+    oldKey = key;
+
     cout << "\nHow many guesses do you want?: ";
     cin >> guesses;
 
-    while (guesses != 0 && !keyEqualsLastWord(key,userWords)) {
+    while (guesses != 0 && !keyEqualsLastWord(key,wordsRemaining)) {
         printKey(key);
         cout << "You have " << guesses << " guesses left" << endl;
-        promptWordsLeft(userWords);
+        promptWordsLeft(wordsRemaining);
 
         promptGuessLetter(letterGuessed, guessedLetters);
+        makeWordFamilies(wordFamilies,letterGuessed, wordsRemaining, size, key);
 
-        makeWordFamilies(wordFamilies,letterGuessed, userWords, size, key);
-        findBiggestFamily(wordFamilies, key, userWords);
-        --guesses;
+        if(guesses != 1){
+            findBiggestFamily(wordFamilies, key, wordsRemaining);
         }
+        else{
+            findSmallestKey(wordFamilies, key, wordsRemaining);
+        }
+        if(compareNewOldKey(key, oldKey)){
+            --guesses;
+        }
+        oldKey = key;
+    }
 
-    if(keyEqualsLastWord(key,userWords)){
+    if(keyEqualsLastWord(key,wordsRemaining)){
         printWinningMessage(key);
         endPrompt();
     }
